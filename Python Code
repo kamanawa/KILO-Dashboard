@@ -1,0 +1,63 @@
+import glob
+import serial
+import time
+from flask import Flask, render_template, Response
+
+# Auto-detect Arduino port
+def find_arduino_port():
+    ports = glob.glob('/dev/ttyACM*')
+    if not ports:
+        raise Exception("No Arduino found on /dev/ttyACM*")
+    print(f"[INFO] Using Arduino on port {ports[0]}")
+    return ports[0]
+
+# Setup Flask
+app = Flask(__name__)
+
+# Connect to Arduino
+ser = serial.Serial(find_arduino_port(), 9600)
+time.sleep(2)  # wait for Arduino to reset
+
+@app.route('/')
+def index():
+    return render_template('index.html')  # Render the HTML dashboard
+
+# Stream live sensor data
+def generate_data():
+    while True:
+        try:
+            line = ser.readline().decode('utf-8').strip()  # Read data from ser>
+            print(f"[DEBUG] Raw line from Arduino: {line}")  # Debugging line
+
+            # Check if the data format is correct (comma-separated values)
+            if ',' in line:
+                temp, hum = line.split(',')
+                yield f"data: {{\"temp\": {temp}, \"hum\": {hum}}}\n\n"
+            else:
+                print(f"[ERROR] Invalid data format: {line}")
+        except Exception as e:
+            print(f"[ERROR] Failed to read or process serial data: {e}")
+
+@app.route('/stream')
+def stream():
+    return Response(generate_data(), mimetype='text/event-stream')  # Stream da>
+
+# Handle control button clicks
+@app.route('/command/<cmd>')
+def command(cmd):
+    try:
+        if cmd.upper() in ["ON", "OFF"]:
+            # Send the command to the Arduino (either ON or OFF)
+            ser.write((cmd.upper() + "\n").encode('utf-8'))
+            print(f"[CMD] Sent: {cmd.upper()}")  # Log the sent command
+   else:
+            print(f"[ERROR] Invalid command: {cmd}")
+    except Exception as e:
+        print(f"[ERROR] Command error: {e}")
+    return ('', 204)  # Return an empty response (no content)
+
+# Run the app
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)  # Run Flask on all addresse>
+
+
