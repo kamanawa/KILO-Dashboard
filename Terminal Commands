@@ -1,0 +1,9 @@
+ cd ~/arduino-webdash
+python3 app.py
+nano ~/arduino-webdash/templates/index.html
+ cd ~/arduino-webdash
+python3 app.py
+
+cd ~/arduino-webdash/templates
+  nano index.html
+
