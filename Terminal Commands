@@ -7,3 +7,4 @@ python3 app.py
 cd ~/arduino-webdash/templates
   nano index.html
 
+http://localhost:5000
