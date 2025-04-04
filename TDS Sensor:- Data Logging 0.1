@@ -1,0 +1,63 @@
+#include <EEPROM.h>
+
+#define TDS_PIN A0
+#define VREF 5.0             // analog reference voltage
+#define SCOUNT 30            // avg sample count
+#define LOG_INTERVAL 10000   // 10 seconds
+#define ADDR_START 2
+
+int analogBuffer[SCOUNT];
+int analogIndex = 0;
+float averageVoltage = 0;
+float tdsValue = 0;
+
+int addr;
+
+void setup() {
+  Serial.begin(9600);
+
+  EEPROM.get(0, addr);
+  if (addr < ADDR_START || addr > EEPROM.length() - 8) {
+    addr = ADDR_START;
+  }
+
+  Serial.print("Resuming TDS logging at EEPROM address: ");
+  Serial.println(addr);
+}
+
+void loop() {
+  if (addr + 8 > EEPROM.length()) {
+    Serial.println("EEPROM full! Logging stopped.");
+    while (1);
+  }
+
+  // Average voltage over SCOUNT samples
+  long total = 0;
+  for (int i = 0; i < SCOUNT; i++) {
+    analogBuffer[i] = analogRead(TDS_PIN);
+    total += analogBuffer[i];
+    delay(10);
+  }
+  averageVoltage = total / (float)SCOUNT * VREF / 1024.0;
+
+  // DFRobot’s formula for TDS value
+  tdsValue = (133.42 * pow(averageVoltage, 3) 
+             - 255.86 * pow(averageVoltage, 2) 
+             + 857.39 * averageVoltage) * 0.5;
+
+  unsigned long timestamp = millis();
+
+  EEPROM.put(addr, timestamp);
+  EEPROM.put(addr + 4, tdsValue);
+  EEPROM.put(0, addr + 8);
+
+  Serial.print("Logged TDS: ");
+  Serial.print(tdsValue, 2);
+  Serial.print(" ppm at ");
+  Serial.print(timestamp);
+  Serial.print(" ms, EEPROM addr ");
+  Serial.println(addr);
+
+  addr += 8;
+  delay(LOG_INTERVAL);
+}
