@@ -1,0 +1,50 @@
+#include <EEPROM.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 2
+#define LOG_INTERVAL 10000  // 10 seconds
+#define ADDR_START 2        // First available address after log pointer
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+int addr;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Enable internal pull-up
+  pinMode(ONE_WIRE_BUS, INPUT_PULLUP);
+  sensors.begin();
+
+  // Read saved write address from EEPROM (first 2 bytes)
+  EEPROM.get(0, addr);
+  if (addr < ADDR_START || addr > EEPROM.length() - sizeof(float)) {
+    addr = ADDR_START;  // fallback to safe start
+  }
+
+  Serial.print("Resuming logging at EEPROM address: ");
+  Serial.println(addr);
+}
+
+void loop() {
+  if (addr + sizeof(float) > EEPROM.length()) {
+    Serial.println("EEPROM full! Logging stopped.");
+    while (1);
+  }
+
+  sensors.requestTemperatures();
+  float tempC = sensors.getTempCByIndex(0);
+
+  EEPROM.put(addr, tempC);
+  EEPROM.put(0, addr + sizeof(float));  // update saved address
+
+  Serial.print("Logged temp: ");
+  Serial.print(tempC);
+  Serial.print(" °C at EEPROM address ");
+  Serial.println(addr);
+
+  addr += sizeof(float);
+  delay(LOG_INTERVAL);
+}
