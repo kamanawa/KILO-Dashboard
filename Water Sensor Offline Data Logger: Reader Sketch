@@ -1,0 +1,27 @@
+#include <EEPROM.h>
+
+int addr = 2;  // Start after address pointer
+float temp;
+int index = 0;
+
+void setup() {
+  Serial.begin(9600);
+  delay(500);
+  Serial.println("reading,temperature_C"); // CSV header
+
+  while (addr + sizeof(float) <= EEPROM.length()) {
+    EEPROM.get(addr, temp);
+
+    // Skip empty values (early break if EEPROM is 0.0 or uninitialized)
+    if (isnan(temp) || temp == 0.0) break;
+
+    Serial.print(index);
+    Serial.print(",");
+    Serial.println(temp);
+
+    addr += sizeof(float);
+    index++;
+  }
+}
+
+void loop() {}
